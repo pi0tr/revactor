@@ -42,22 +42,23 @@ class WordCount
   end
 end
 
+if $0 == __FILE__
+  resources = resources[0...(ARGV[0].to_i)]
+  map = -> target, uri do
+    WordCount.each_word(uri) {|w| target << T[w, 1]}
+  end
+  reduce = -> key, values { T[key, values.size] }
 
-resources = resources[0...(ARGV[0].to_i)]
-map = -> target, uri do
-  WordCount.each_word(uri) {|w| target << T[w, 1]}
-end
-reduce = -> key, values { T[key, values.size] }
+  test_seq = WordCount.new(Sequential.new(map, reduce))
+  test_actor = WordCount.new(Concurrent.new(map, reduce))
+  Benchmark.bm(12) do |b|
+    b.report("sequential") { test_seq.run(resources) }
+    b.report("#{resources.size} actors") { test_actor.run(resources) }
+  end
 
-test_seq = WordCount.new(Sequential.new(map, reduce))
-test_actor = WordCount.new(Concurrent.new(map, reduce))
-Benchmark.bm(12) do |b|
-  b.report("sequential") { test_seq.run(resources) }
-  b.report("#{resources.size} actors") { test_actor.run(resources) }
-end
-
-%w(test_seq test_actor).each do |t|
-  File.open(t, "w") do |f|
-    f.puts eval(t).output
+  %w(test_seq test_actor).each do |t|
+    File.open(t, "w") do |f|
+      f.puts eval(t).output
+    end
   end
 end
